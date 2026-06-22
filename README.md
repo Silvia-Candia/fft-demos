@@ -11,7 +11,7 @@ A set of self-contained, browser-based demos illustrating how the Fast Fourier T
 - the 2D FFT and the corner turn
 - a hardware-implementation explorer
 
-Each demo is a single HTML page using plain JavaScript and canvas. No build step. Open `index.html`, or any file directly.
+Open `index.html` for a navigator that browses all of them, or open any demo file directly (each is self-contained, which is how they embed).
 
 Live: https://silvia-candia.github.io/fft-demos/
 

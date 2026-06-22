@@ -3,35 +3,91 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FFT - interactive demos</title>
+<title>FFT demos</title>
 <link rel="stylesheet" href="style.css">
 <style>
-  .demo { display:block; text-decoration:none; color:inherit; border:1px solid var(--line); border-radius:9px; padding:14px 16px; margin-bottom:10px; background:#fff; }
-  .demo:hover { border-color:var(--accent); }
-  .demo .t { font-weight:600; font-size:15px; }
-  .demo .d { color:var(--muted); font-size:13px; margin-top:2px; }
-  .grp { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.04em; margin:20px 0 8px; }
+  html, body { height: 100%; }
+  body { margin: 0; }
+  .nav-wrap { display: flex; height: 100vh; }
+  .sidebar { width: 264px; flex-shrink: 0; border-right: 1px solid var(--line); background: #fff; overflow-y: auto; padding: 18px 14px; }
+  .sidebar h1 { font-size: 18px; margin: 0 0 4px; }
+  .sidebar .sub { font-size: 12px; color: var(--muted); margin: 0 0 8px; }
+  .grp { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 16px 0 6px; }
+  .item { display: block; padding: 7px 10px; border-radius: 7px; font-size: 13px; color: var(--fg); text-decoration: none; cursor: pointer; }
+  .item:hover { background: #eef4fb; }
+  .item.active { background: var(--accent); color: #fff; }
+  .item .n { color: var(--muted); margin-right: 7px; font-variant-numeric: tabular-nums; }
+  .item.active .n { color: #dbe7fb; }
+  .stage { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .bar { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-bottom: 1px solid var(--line); background: #fff; font-size: 13px; }
+  .bar .title { font-weight: 600; flex: 1; }
+  .bar button { font-size: 13px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; cursor: pointer; }
+  .bar button:disabled { opacity: .4; cursor: default; }
+  iframe { flex: 1; width: 100%; border: 0; background: var(--bg); }
+  @media (max-width: 680px) {
+    .nav-wrap { flex-direction: column; height: auto; }
+    .sidebar { width: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+    iframe { height: 78vh; }
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>FFT: interactive demos</h1>
-  <p class="sub">A set of interactive demos showing how the FFT works. Each demo is a single self-contained page. Open one below.</p>
-
-  <div class="grp">Part 1 &middot; the 1D FFT</div>
-  <a class="demo" href="01-signal-builder.html"><div class="t">1 &middot; Signal builder + live spectrum</div><div class="d">A signal is a sum of sines; the FFT recovers which and how much.</div></a>
-  <a class="demo" href="02-ops-vs-n.html"><div class="t">2 &middot; Why the FFT matters: N&sup2; vs N&middot;logN</div><div class="d">The cost gap that makes large-N real-time processing possible.</div></a>
-  <a class="demo" href="03-ops-vs-radix.html"><div class="t">3 &middot; Ops vs radix: the U-shape</div><div class="d">Why operation count bottoms out at radix 2 to 4.</div></a>
-  <a class="demo" href="04-butterfly.html"><div class="t">4 &middot; The butterfly, and log&#8322;N stages</div><div class="d">One butterfly, and how an 8-point FFT is three stages of them.</div></a>
-  <a class="demo" href="08-hardware/index.html"><div class="t">8 &middot; FFT hardware explorer</div><div class="d">From maths to silicon: butterfly blocks, supporting logic, and three FPGA layouts.</div></a>
-  <a class="demo" href="09-radix-flow.html"><div class="t">9 &middot; Radix reshapes the flow graph</div><div class="d">Pick the radix and watch stages collapse as butterflies widen.</div></a>
-
-  <div class="grp">Part 2 &middot; real vs complex</div>
-  <a class="demo" href="05-aliasing.html"><div class="t">5 &middot; Aliasing: why the wall is at N/2</div><div class="d">A high frequency and its alias share the same sample points.</div></a>
-  <a class="demo" href="06-real-vs-complex.html"><div class="t">6 &middot; Real vs complex (I/Q) spectrum</div><div class="d">Symmetric real spectrum vs independent +f and &minus;f for I/Q.</div></a>
-
-  <div class="grp">Part 3 &middot; 2D and applications</div>
-  <a class="demo" href="07-2d-fft.html"><div class="t">7 &middot; 2D FFT and the corner turn</div><div class="d">Rows then columns, and the transpose that dominates in hardware.</div></a>
+<div class="nav-wrap">
+  <aside class="sidebar">
+    <h1>FFT demos</h1>
+    <p class="sub">Interactive demos for the FFT study notes.</p>
+    <div id="list"></div>
+  </aside>
+  <main class="stage">
+    <div class="bar">
+      <button id="prev">&larr; prev</button>
+      <div class="title" id="title"></div>
+      <button id="next">next &rarr;</button>
+    </div>
+    <iframe id="frame" title="demo"></iframe>
+  </main>
 </div>
+<script>
+const demos = [
+  { g:'Part 1 · the 1D FFT', n:1, file:'01-signal-builder.html', t:'Signal builder + live spectrum' },
+  { g:'Part 1 · the 1D FFT', n:2, file:'02-ops-vs-n.html', t:'Why the FFT matters: N² vs N·logN' },
+  { g:'Part 1 · the 1D FFT', n:3, file:'03-ops-vs-radix.html', t:'Ops vs radix: the U-shape' },
+  { g:'Part 1 · the 1D FFT', n:4, file:'04-butterfly.html', t:'The butterfly and log₂N stages' },
+  { g:'Part 1 · the 1D FFT', n:8, file:'08-hardware/index.html', t:'FFT hardware explorer' },
+  { g:'Part 1 · the 1D FFT', n:9, file:'09-radix-flow.html', t:'Radix reshapes the flow graph' },
+  { g:'Part 2 · real vs complex', n:5, file:'05-aliasing.html', t:'Aliasing: why the wall is at N/2' },
+  { g:'Part 2 · real vs complex', n:6, file:'06-real-vs-complex.html', t:'Real vs complex (I/Q) spectrum' },
+  { g:'Part 3 · 2D and applications', n:7, file:'07-2d-fft.html', t:'2D FFT and the corner turn' },
+];
+const listEl = document.getElementById('list');
+const frame = document.getElementById('frame');
+const titleEl = document.getElementById('title');
+const prevBtn = document.getElementById('prev');
+const nextBtn = document.getElementById('next');
+let current = 0, lastG = null;
+demos.forEach((d, i) => {
+  if (d.g !== lastG) { const h = document.createElement('div'); h.className = 'grp'; h.textContent = d.g; listEl.appendChild(h); lastG = d.g; }
+  const a = document.createElement('a'); a.className = 'item'; a.dataset.i = i;
+  a.innerHTML = '<span class="n">' + d.n + '</span>' + d.t;
+  a.addEventListener('click', () => select(i));
+  listEl.appendChild(a);
+});
+function select(i) {
+  current = i; const d = demos[i];
+  frame.src = d.file;
+  titleEl.textContent = d.n + ' · ' + d.t;
+  location.hash = 'demo' + d.n;
+  Array.from(listEl.querySelectorAll('.item')).forEach(el => el.classList.toggle('active', +el.dataset.i === i));
+  prevBtn.disabled = i === 0; nextBtn.disabled = i === demos.length - 1;
+}
+prevBtn.addEventListener('click', () => { if (current > 0) select(current - 1); });
+nextBtn.addEventListener('click', () => { if (current < demos.length - 1) select(current + 1); });
+function fromHash() {
+  const m = location.hash.slice(1).match(/^demo(\d+)$/);
+  if (m) { const idx = demos.findIndex(d => d.n === +m[1]); if (idx >= 0) return idx; }
+  return 0;
+}
+select(fromHash());
+</script>
 </body>
 </html>

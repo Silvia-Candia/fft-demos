@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -14,7 +14,7 @@
 </head>
 <body>
 <div class="wrap">
-  <a class="back" href="index.html">&larr; all demos</a>
+  
   <h1>4 &middot; The butterfly, and log&#8322;N stages</h1>
   <p class="sub">One butterfly turns two inputs into two outputs with a single twiddle multiply. An N-point FFT is just log&#8322;N stages of them. (Part 1)</p>
   <div class="card">
@@ -82,9 +82,9 @@ function drawButterfly(){
   dot(bctx,ax,ay,"#1f2933"); dot(bctx,bx,by,"#1f2933"); dot(bctx,ox,55,"#1f2933"); dot(bctx,ox,150,"#1f2933");
   bctx.fillStyle="#1f2933"; bctx.font="15px system-ui"; bctx.textBaseline="middle";
   bctx.textAlign="right"; bctx.fillText("a", ax-14, ay); bctx.fillText("b", bx-14, by);
-  bctx.textAlign="left"; bctx.fillText("a + W·b", ox+14, 55); bctx.fillText("a − W·b", ox+14, 150);
+  bctx.textAlign="left"; bctx.fillText("a + WÂ·b", ox+14, 55); bctx.fillText("a âˆ’ WÂ·b", ox+14, 150);
   bctx.fillStyle="#b45309"; bctx.font="13px system-ui";
-  bctx.fillText("orange leg = multiplied by twiddle  W = e^(− i 2πk/N)", 240, 102);
+  bctx.fillText("orange leg = multiplied by twiddle  W = e^(âˆ’ i 2Ï€k/N)", 240, 102);
 }
 
 function bitrev(i, bits){ let r=0; for(let b=0;b<bits;b++){ r=(r<<1)|((i>>b)&1); } return r; }

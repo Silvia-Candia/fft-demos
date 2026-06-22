@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -18,7 +18,7 @@
 </head>
 <body>
 <div class="wrap">
-  <a class="back" href="../index.html">&larr; all demos</a>
+  
   <div class="crumbs"><a href="index.html">8 &middot; FFT hardware explorer</a> / <b>Level A &middot; the butterfly as hardware</b></div>
   <h1>8A &middot; The butterfly as hardware</h1>
   <p class="sub">The radix-2 butterfly is three hardware blocks: a complex multiplier (the expensive one), an adder, and a subtractor. Click a block to drill in. (Part 1, hardware)</p>
@@ -38,9 +38,9 @@ const hint = document.getElementById("hint");
 
 // block rectangles, in canvas coords, with hit-testing
 const blocks = {
-  mult: {x:300, y:185, w:120, h:54, label:"complex", sub:"× W", color:"#fde68a", stroke:"#d97706"},
+  mult: {x:300, y:185, w:120, h:54, label:"complex", sub:"Ã— W", color:"#fde68a", stroke:"#d97706"},
   add:  {x:560, y:70,  w:120, h:48, label:"adder", sub:"a + Wb", color:"#bbf7d0", stroke:"#16a34a"},
-  sub:  {x:560, y:200, w:120, h:48, label:"subtractor", sub:"a − Wb", color:"#fecaca", stroke:"#dc2626"}
+  sub:  {x:560, y:200, w:120, h:48, label:"subtractor", sub:"a âˆ’ Wb", color:"#fecaca", stroke:"#dc2626"}
 };
 
 function line(x1,y1,x2,y2,c,w){ ctx.strokeStyle=c||"#64748b"; ctx.lineWidth=w||2; ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); }
@@ -71,7 +71,7 @@ function draw(){
   arrow(80, ayB, blocks.mult.x, blocks.mult.y+blocks.mult.h/2, "#2563eb");
   // W input into multiplier from below
   ctx.fillStyle="#b45309"; ctx.font="14px ui-monospace, Consolas, monospace"; ctx.textAlign="center";
-  ctx.fillText("W = e^(-i 2πk/N)", blocks.mult.x+blocks.mult.w/2, 280);
+  ctx.fillText("W = e^(-i 2Ï€k/N)", blocks.mult.x+blocks.mult.w/2, 280);
   arrow(blocks.mult.x+blocks.mult.w/2, 268, blocks.mult.x+blocks.mult.w/2, blocks.mult.y+blocks.mult.h, "#d97706");
   // multiplier output (Wb) goes up to a split, then to adder (+) and subtractor (-)
   const mx = blocks.mult.x+blocks.mult.w, my = blocks.mult.y+blocks.mult.h/2;
@@ -96,22 +96,22 @@ function draw(){
   arrow(blocks.add.x+blocks.add.w, blocks.add.y+blocks.add.h/2, 740, blocks.add.y+blocks.add.h/2, "#16a34a");
   arrow(blocks.sub.x+blocks.sub.w, blocks.sub.y+blocks.sub.h/2, 740, blocks.sub.y+blocks.sub.h/2, "#dc2626");
   ctx.fillText("a + Wb", 744, blocks.add.y+blocks.add.h/2);
-  ctx.fillText("a − Wb", 744, blocks.sub.y+blocks.sub.h/2);
+  ctx.fillText("a âˆ’ Wb", 744, blocks.sub.y+blocks.sub.h/2);
 }
 
 const panels = {
   mult: "<h3>Complex multiplier &times; W</h3>" +
     "<p>One complex multiply (a+bi)(c+di) expands into real operations:</p>" +
-    "<div class='eq'>(a+bi)(c+di) = (ac − bd) + (ad + bc) i</div>" +
+    "<div class='eq'>(a+bi)(c+di) = (ac âˆ’ bd) + (ad + bc) i</div>" +
     "<p>That is <b>4 real multiplies</b> (ac, bd, ad, bc) and <b>2 real adds</b> (one subtract, one add).</p>" +
     "<p>A known trick computes it in <b>3 real multiplies</b> + 5 adds (Karatsuba-style), trading a multiply for cheaper adds, which matters because multiplies are the scarce DSP resource.</p>" +
     "<p><b>FPGA mapping:</b> each real multiply &rarr; a <b>DSP slice</b>. So one butterfly burns about 3 to 4 DSP slices: the single most resource-hungry part of the FFT, and the main driver of area and power.</p>",
   add: "<h3>Adder &nbsp;a + Wb</h3>" +
     "<p>Complex add: add the real parts, add the imaginary parts. <b>2 real adds</b>.</p>" +
     "<p><b>FPGA mapping:</b> plain fabric (LUTs + carry chains). Cheap next to a multiply, which is why op-counts ignore adds and count multiplies.</p>",
-  sub: "<h3>Subtractor &nbsp;a − Wb</h3>" +
+  sub: "<h3>Subtractor &nbsp;a âˆ’ Wb</h3>" +
     "<p>Complex subtract: subtract real parts, subtract imaginary parts. <b>2 real subtracts</b>.</p>" +
-    "<p>The butterfly reuses the <i>same</i> Wb for both outputs (one + , one −), so the costly multiply is done once and shared. That sharing is the whole efficiency of the butterfly.</p>"
+    "<p>The butterfly reuses the <i>same</i> Wb for both outputs (one + , one âˆ’), so the costly multiply is done once and shared. That sharing is the whole efficiency of the butterfly.</p>"
 };
 
 // ---- circuit diagrams drawn into the panel ----
@@ -135,10 +135,10 @@ function drawCircuit(key){
   if(key==="mult"){
     clabel(c,"b_r",18,40,"#2563eb","left"); clabel(c,"b_i",18,80,"#2563eb","left");
     clabel(c,"W_r",18,160,"#b45309","left"); clabel(c,"W_i",18,200,"#b45309","left");
-    cbox(c,150,24,70,34,M,Ms,"×"); clabel(c,"W_r·b_r",225,41,"#52606d","left");
-    cbox(c,150,70,70,34,M,Ms,"×"); clabel(c,"W_i·b_i",225,87,"#52606d","left");
-    cbox(c,150,150,70,34,M,Ms,"×"); clabel(c,"W_r·b_i",225,167,"#52606d","left");
-    cbox(c,150,196,70,34,M,Ms,"×"); clabel(c,"W_i·b_r",225,213,"#52606d","left");
+    cbox(c,150,24,70,34,M,Ms,"Ã—"); clabel(c,"W_rÂ·b_r",225,41,"#52606d","left");
+    cbox(c,150,70,70,34,M,Ms,"Ã—"); clabel(c,"W_iÂ·b_i",225,87,"#52606d","left");
+    cbox(c,150,150,70,34,M,Ms,"Ã—"); clabel(c,"W_rÂ·b_i",225,167,"#52606d","left");
+    cbox(c,150,196,70,34,M,Ms,"Ã—"); clabel(c,"W_iÂ·b_r",225,213,"#52606d","left");
     carrow(c,50,40,150,41,"#2563eb");
     carrow(c,50,160,150,41,"#b45309");
     carrow(c,50,80,150,87,"#2563eb");
@@ -147,13 +147,13 @@ function drawCircuit(key){
     carrow(c,50,160,150,167,"#b45309");
     carrow(c,50,40,150,213,"#2563eb");
     carrow(c,50,200,150,213,"#b45309");
-    cbox(c,360,40,60,34,S,Ss,"−");
+    cbox(c,360,40,60,34,S,Ss,"âˆ’");
     carrow(c,300,41,360,52,"#52606d"); carrow(c,300,87,360,62,"#52606d");
-    carrow(c,420,57,520,57,Ss); clabel(c,"Re = W_r·b_r − W_i·b_i",430,30,"#1f2933","left");
+    carrow(c,420,57,520,57,Ss); clabel(c,"Re = W_rÂ·b_r âˆ’ W_iÂ·b_i",430,30,"#1f2933","left");
     cbox(c,360,166,60,34,A,As,"+");
     carrow(c,300,167,360,177,"#52606d"); carrow(c,300,213,360,189,"#52606d");
-    carrow(c,420,183,520,183,As); clabel(c,"Im = W_r·b_i + W_i·b_r",430,222,"#1f2933","left");
-    clabel(c,"4 multipliers (→ DSP slices)  +  1 sub, 1 add",150,250,"#52606d","left");
+    carrow(c,420,183,520,183,As); clabel(c,"Im = W_rÂ·b_i + W_iÂ·b_r",430,222,"#1f2933","left");
+    clabel(c,"4 multipliers (â†’ DSP slices)  +  1 sub, 1 add",150,250,"#52606d","left");
   } else if(key==="add"){
     clabel(c,"a_r",30,70,"#2563eb","left"); clabel(c,"(Wb)_r",30,110,"#d97706","left");
     clabel(c,"a_i",30,170,"#2563eb","left"); clabel(c,"(Wb)_i",30,210,"#d97706","left");
@@ -165,10 +165,10 @@ function drawCircuit(key){
   } else if(key==="sub"){
     clabel(c,"a_r",30,70,"#2563eb","left"); clabel(c,"(Wb)_r",30,110,"#d97706","left");
     clabel(c,"a_i",30,170,"#2563eb","left"); clabel(c,"(Wb)_i",30,210,"#d97706","left");
-    cbox(c,220,70,70,34,S,Ss,"−"); carrow(c,90,70,220,82,"#2563eb"); carrow(c,110,110,220,92,"#d97706");
-    carrow(c,290,87,470,87,Ss); clabel(c,"(a−Wb)_r",480,87,"#1f2933","left");
-    cbox(c,220,176,70,34,S,Ss,"−"); carrow(c,90,170,220,188,"#2563eb"); carrow(c,110,210,220,198,"#d97706");
-    carrow(c,290,193,470,193,Ss); clabel(c,"(a−Wb)_i",480,193,"#1f2933","left");
+    cbox(c,220,70,70,34,S,Ss,"âˆ’"); carrow(c,90,70,220,82,"#2563eb"); carrow(c,110,110,220,92,"#d97706");
+    carrow(c,290,87,470,87,Ss); clabel(c,"(aâˆ’Wb)_r",480,87,"#1f2933","left");
+    cbox(c,220,176,70,34,S,Ss,"âˆ’"); carrow(c,90,170,220,188,"#2563eb"); carrow(c,110,210,220,198,"#d97706");
+    carrow(c,290,193,470,193,Ss); clabel(c,"(aâˆ’Wb)_i",480,193,"#1f2933","left");
     clabel(c,"2 real subtractors. The same Wb feeds both adder and subtractor.",110,245,"#52606d","left");
   }
 }

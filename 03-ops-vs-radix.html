@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -12,7 +12,7 @@
 </head>
 <body>
 <div class="wrap">
-  <a class="back" href="index.html">&larr; all demos</a>
+  
   <h1>3 &middot; Ops vs radix: the U-shape</h1>
   <p class="sub">Operation count does not keep falling as the radix grows. It bottoms out at small radix (2 to 4), which is why those are used in practice. (Part 1)</p>
 
@@ -93,7 +93,7 @@ function decadeBounds(values){
   return {lo, hi};
 }
 function supn(e){
-  const map = {"-":"⁻","0":"⁰","1":"¹","2":"²","3":"³","4":"⁴","5":"⁵","6":"⁶","7":"⁷","8":"⁸","9":"⁹"};
+  const map = {"-":"â»","0":"â°","1":"Â¹","2":"Â²","3":"Â³","4":"â´","5":"âµ","6":"â¶","7":"â·","8":"â¸","9":"â¹"};
   return String(e).split("").map(c=>map[c]||c).join("");
 }
 function decadeTicks(lo, hi){
