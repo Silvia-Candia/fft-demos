@@ -1,0 +1,37 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FFT - interactive demos</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .demo { display:block; text-decoration:none; color:inherit; border:1px solid var(--line); border-radius:9px; padding:14px 16px; margin-bottom:10px; background:#fff; }
+  .demo:hover { border-color:var(--accent); }
+  .demo .t { font-weight:600; font-size:15px; }
+  .demo .d { color:var(--muted); font-size:13px; margin-top:2px; }
+  .grp { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.04em; margin:20px 0 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>FFT: interactive demos</h1>
+  <p class="sub">A set of interactive demos showing how the FFT works. Each demo is a single self-contained page. Open one below.</p>
+
+  <div class="grp">Part 1 &middot; the 1D FFT</div>
+  <a class="demo" href="01-signal-builder.html"><div class="t">1 &middot; Signal builder + live spectrum</div><div class="d">A signal is a sum of sines; the FFT recovers which and how much.</div></a>
+  <a class="demo" href="02-ops-vs-n.html"><div class="t">2 &middot; Why the FFT matters: N&sup2; vs N&middot;logN</div><div class="d">The cost gap that makes large-N real-time processing possible.</div></a>
+  <a class="demo" href="03-ops-vs-radix.html"><div class="t">3 &middot; Ops vs radix: the U-shape</div><div class="d">Why operation count bottoms out at radix 2 to 4.</div></a>
+  <a class="demo" href="04-butterfly.html"><div class="t">4 &middot; The butterfly, and log&#8322;N stages</div><div class="d">One butterfly, and how an 8-point FFT is three stages of them.</div></a>
+  <a class="demo" href="08-hardware/index.html"><div class="t">8 &middot; FFT hardware explorer</div><div class="d">From maths to silicon: butterfly blocks, supporting logic, and three FPGA layouts.</div></a>
+  <a class="demo" href="09-radix-flow.html"><div class="t">9 &middot; Radix reshapes the flow graph</div><div class="d">Pick the radix and watch stages collapse as butterflies widen.</div></a>
+
+  <div class="grp">Part 2 &middot; real vs complex</div>
+  <a class="demo" href="05-aliasing.html"><div class="t">5 &middot; Aliasing: why the wall is at N/2</div><div class="d">A high frequency and its alias share the same sample points.</div></a>
+  <a class="demo" href="06-real-vs-complex.html"><div class="t">6 &middot; Real vs complex (I/Q) spectrum</div><div class="d">Symmetric real spectrum vs independent +f and &minus;f for I/Q.</div></a>
+
+  <div class="grp">Part 3 &middot; 2D and applications</div>
+  <a class="demo" href="07-2d-fft.html"><div class="t">7 &middot; 2D FFT and the corner turn</div><div class="d">Rows then columns, and the transpose that dominates in hardware.</div></a>
+</div>
+</body>
+</html>

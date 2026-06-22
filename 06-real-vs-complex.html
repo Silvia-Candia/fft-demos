@@ -1,0 +1,94 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demo 6 - Real vs complex spectrum</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="index.html">&larr; all demos</a>
+  <h1>6 &middot; Real vs complex (I/Q) spectrum</h1>
+  <p class="sub">Real input gives a mirror-symmetric spectrum (half redundant). Complex I/Q input does not: +f and &minus;f are independent. (Part 2)</p>
+  <div class="card">
+    <div class="controls">
+      <div class="control">
+        <label>mode</label>
+        <div><button id="bReal" class="active">Real input</button> <button id="bCplx">Complex (I/Q)</button></div>
+      </div>
+      <div class="control">
+        <label id="l1"></label>
+        <input type="range" id="a1" min="0" max="1" step="0.01" value="0.8">
+        <span class="val" id="v1">0.80</span>
+      </div>
+      <div class="control">
+        <label id="l2"></label>
+        <input type="range" id="a2" min="0" max="1" step="0.01" value="0.4">
+        <span class="val" id="v2">0.40</span>
+      </div>
+    </div>
+    <canvas id="plot" width="800" height="320"></canvas>
+    <p class="readout" id="readout"></p>
+  </div>
+  <p class="note"><b>Why it matters:</b> radar and SAR sample two channels (I and Q) to get complex input on purpose. It is the only way to tell +frequency from &minus;frequency, e.g. a target approaching versus receding. Complex FFT/IFFT is the baseline for radar and SAR.</p>
+</div>
+<script src="fft.js"></script>
+<script src="plot.js"></script>
+<script>
+const N=64; let mode='real';
+const a1=document.getElementById('a1'), a2=document.getElementById('a2');
+const v1=document.getElementById('v1'), v2=document.getElementById('v2');
+const l1=document.getElementById('l1'), l2=document.getElementById('l2');
+const ctx=document.getElementById('plot').getContext('2d');
+const out=document.getElementById('readout');
+const bReal=document.getElementById('bReal'), bCplx=document.getElementById('bCplx');
+function labels(){
+  if(mode==='real'){ l1.textContent='cos at k = 6'; l2.textContent='cos at k = 11'; }
+  else { l1.textContent='amplitude at +8'; l2.textContent='amplitude at âˆ’8'; }
+}
+function build(){
+  const re=new Float64Array(N), im=new Float64Array(N);
+  const A1=+a1.value, A2=+a2.value;
+  if(mode==='real'){
+    for(let n=0;n<N;n++) re[n]=A1*Math.cos(2*Math.PI*6*n/N)+A2*Math.cos(2*Math.PI*11*n/N);
+  } else {
+    for(let n=0;n<N;n++){
+      const w=2*Math.PI*8*n/N;
+      re[n]=A1*Math.cos(w)+A2*Math.cos(-w);
+      im[n]=A1*Math.sin(w)+A2*Math.sin(-w);
+    }
+  }
+  return {re,im};
+}
+function draw(){
+  v1.textContent=(+a1.value).toFixed(2); v2.textContent=(+a2.value).toFixed(2);
+  const sig=build(), sp=fft(sig.re,sig.im);
+  const sh=fftshift(Array.from(magnitude(sp.re,sp.im))).map(v=>v/N);
+  const ymax=1.0;
+  clearCanvas(ctx,800,320);
+  const p=makePlot(ctx,{x:50,y:24,w:710,h:236},{xmin:-N/2-1,xmax:N/2,ymin:0,ymax:ymax});
+  drawFrame(p,{title:(mode==='real'?'Real input: symmetric about zero (upper half redundant)':'Complex (I/Q) input: +f and âˆ’f independent'),
+    xlabel:'bin k  (negative = below zero frequency)',
+    xticks:[-N/2,-16,0,16,N/2-1].map(v=>({v,label:String(v)})),
+    yticks:[{v:0,label:'0'},{v:0.5,label:'0.5'},{v:1,label:'1'}]});
+  ctx.strokeStyle='#94a3b8'; ctx.setLineDash([4,4]); ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(p.sx(0),p.region.y); ctx.lineTo(p.sx(0),p.region.y+p.region.h); ctx.stroke();
+  ctx.setLineDash([]);
+  plotBars(p, sh, (mode==='real'?'#ef4444':'#2563eb'), -N/2);
+  out.innerHTML = (mode==='real')
+    ? 'Real input: |X[Nâˆ’k]| = |X[k]|, so the spectrum mirrors about zero. The right half is a redundant copy of the left: you only need bins 0..N/2. That is the optional ~2Ã— saving.'
+    : 'Complex I/Q input: +8 and âˆ’8 sit in different bins with independent heights (set them unequal and watch). No symmetry, so all N bins carry information.';
+}
+function setMode(m){
+  mode=m;
+  bReal.classList.toggle('active', m==='real');
+  bCplx.classList.toggle('active', m==='complex');
+  labels(); draw();
+}
+bReal.onclick=()=>setMode('real'); bCplx.onclick=()=>setMode('complex');
+[a1,a2].forEach(s=>s.addEventListener('input',draw));
+labels(); draw();
+</script>
+</body>
+</html>

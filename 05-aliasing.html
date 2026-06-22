@@ -1,0 +1,58 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demo 5 - Aliasing and the N/2 wall</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="index.html">&larr; all demos</a>
+  <h1>5 &middot; Aliasing: why the wall is at N/2</h1>
+  <p class="sub">A high-frequency wave and a low-frequency alias pass through the same sample points. From the samples alone they are indistinguishable. (Part 2)</p>
+  <div class="card">
+    <div class="controls">
+      <div class="control">
+        <label>frequency k (cycles/window) = <span class="val" id="kval"></span></label>
+        <input type="range" id="k" min="0" max="16" step="0.25" value="3">
+      </div>
+    </div>
+    <canvas id="plot" width="800" height="300"></canvas>
+    <p class="readout" id="readout"></p>
+  </div>
+  <p class="note"><b>The wall:</b> N samples can only pin down frequencies up to k = N/2 (two samples per cycle, the Nyquist limit). Above it, k and N&minus;k produce identical samples, so for real input the spectrum mirrors about N/2 and the upper half is redundant. Demo 6 shows what complex (I/Q) input changes.</p>
+</div>
+<script src="plot.js"></script>
+<script>
+const N=16;
+const ctx=document.getElementById('plot').getContext('2d');
+const slider=document.getElementById('k'), out=document.getElementById('readout'), kval=document.getElementById('kval');
+function draw(){
+  const k=+slider.value; kval.textContent=k.toFixed(2);
+  clearCanvas(ctx,800,300);
+  const p=makePlot(ctx,{x:45,y:22,w:710,h:228},{xmin:0,xmax:N,ymin:-1.3,ymax:1.3});
+  drawFrame(p,{title:'cos wave at k cycles/window, sampled at N = '+N+' points', xlabel:'sample index n',
+    xticks:[0,4,8,12,16].map(v=>({v,label:String(v)})),
+    yticks:[{v:-1,label:'-1'},{v:0,label:'0'},{v:1,label:'1'}]});
+  const T=[],Y=[]; for(let t=0;t<=N;t+=0.04){T.push(t);Y.push(Math.cos(2*Math.PI*k*t/N));}
+  const aliasing = k>N/2, ka=N-k;
+  if(aliasing){
+    plotLineXY(p,T,Y,'#bcccdc',1.6);
+    const Ya=T.map(t=>Math.cos(2*Math.PI*ka*t/N));
+    plotLineXY(p,T,Ya,'#ef4444',2);
+  } else {
+    plotLineXY(p,T,Y,'#2563eb',2);
+  }
+  const sx=[],sy=[]; for(let n=0;n<N;n++){sx.push(n);sy.push(Math.cos(2*Math.PI*k*n/N));}
+  plotPoints(p,sx,sy,'#111827',4.5);
+  const spc=(k>0)?(N/k).toFixed(2):'∞';
+  out.innerHTML = aliasing
+    ? 'k = '+k.toFixed(2)+' is above Nyquist (N/2 = '+(N/2)+'). The black dots match a lower wave at <b>k = '+ka.toFixed(2)+'</b> (red): from the samples alone you cannot tell them apart. Samples per cycle = '+spc+', below 2.'
+    : 'k = '+k.toFixed(2)+'. Samples per cycle = N/k = '+spc+'. At k = '+(N/2)+' you reach exactly 2 samples per cycle (Nyquist). Push higher to trigger aliasing.';
+}
+slider.addEventListener('input', draw);
+draw();
+</script>
+</body>
+</html>

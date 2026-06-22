@@ -1,0 +1,86 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demo 7 - 2D FFT and the corner turn</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="index.html">&larr; all demos</a>
+  <h1>7 &middot; 2D FFT: rows, then columns, and the corner turn</h1>
+  <p class="sub">A 2D FFT is 1D FFTs on the rows, then 1D FFTs on the columns. The hard part in hardware is the transpose between them. (Part 3)</p>
+  <div class="card">
+    <div class="controls" id="steps">
+      <button data-s="0" class="active">1 &middot; Input image</button>
+      <button data-s="1">2 &middot; FFT each row</button>
+      <button data-s="2">3 &middot; Corner turn (transpose)</button>
+      <button data-s="3">4 &middot; FFT rows again = columns</button>
+    </div>
+    <canvas id="grid" width="800" height="430"></canvas>
+    <p class="readout" id="caption"></p>
+  </div>
+  <p class="note"><b>The point:</b> the maths is just 1D FFTs reused. The corner turn (step 3) is a pure memory transpose, and in hardware that memory-bandwidth shuffle, not the butterflies, is the bottleneck. It ties back to the central thread: power lives in data movement.</p>
+</div>
+<script src="fft.js"></script>
+<script src="plot.js"></script>
+<script>
+const M=16;
+function makeInput(){
+  const g=[];
+  for(let y=0;y<M;y++){ const row=[]; for(let x=0;x<M;x++){
+    const v=Math.cos(2*Math.PI*2*x/M)+Math.cos(2*Math.PI*5*y/M);
+    row.push({re:v,im:0});
+  } g.push(row); } return g;
+}
+function rowFFT(g){
+  return g.map(r=>{
+    const re=r.map(c=>c.re), im=r.map(c=>c.im), s=fft(re,im);
+    return Array.from({length:M},(_,k)=>({re:s.re[k],im:s.im[k]}));
+  });
+}
+function transpose(g){
+  const t=[]; for(let y=0;y<M;y++){ const row=[]; for(let x=0;x<M;x++) row.push(g[x][y]); t.push(row);} return t;
+}
+const mag2d=g=>g.map(r=>r.map(c=>Math.hypot(c.re,c.im)));
+const real2d=g=>g.map(r=>r.map(c=>c.re));
+function shift2d(m){ const h=M/2,o=[]; for(let y=0;y<M;y++){const row=[];for(let x=0;x<M;x++) row.push(m[(y+h)%M][(x+h)%M]); o.push(row);} return o; }
+
+const g0=makeInput();
+const g1=rowFFT(g0);
+const g2=transpose(g1);
+const g3=rowFFT(g2);
+const finalSpec=shift2d(mag2d(transpose(g3)));
+const views=[
+  {mat:real2d(g0), kind:'signed', cap:'Input: a small image built from two sinusoids. Real-valued pixels.'},
+  {mat:mag2d(g1),  kind:'mag',    cap:'After a 1D FFT on every row. Each row is now its own spectrum (magnitude shown).'},
+  {mat:mag2d(g2),  kind:'mag',    cap:'Corner turn: the grid is transposed so the columns become rows. Compare to the previous step: it is flipped across the diagonal. In hardware this is the memory bottleneck.'},
+  {mat:finalSpec,  kind:'mag',    cap:'A 1D FFT on the new rows (the original columns), then shifted to centre zero frequency: the full 2D spectrum. The bright spots are the two input frequencies.'}
+];
+const ctx=document.getElementById('grid').getContext('2d');
+const cap=document.getElementById('caption');
+function drawHeat(mat, kind){
+  clearCanvas(ctx,800,430,'#f7f9fb');
+  let max=0; for(const r of mat) for(const v of r) max=Math.max(max, kind==='signed'?Math.abs(v):v);
+  const cell=24, ox=(800-M*cell)/2, oy=30;
+  for(let y=0;y<M;y++) for(let x=0;x<M;x++){
+    const v=mat[y][x]; let col;
+    if(kind==='signed'){ const t=v/(max||1), g=Math.round(150+105*t); col='rgb('+g+','+g+','+g+')'; }
+    else { const t=Math.log(1+v)/Math.log(1+(max||1)), c=Math.round(255-200*t); col='rgb('+c+','+c+',255)'; }
+    ctx.fillStyle=col; ctx.fillRect(ox+x*cell, oy+y*cell, cell-1, cell-1);
+  }
+  ctx.strokeStyle='#94a3b8'; ctx.strokeRect(ox-0.5, oy-0.5, M*cell+1, M*cell+1);
+}
+let step=0;
+function show(s){
+  step=s;
+  document.querySelectorAll('#steps button').forEach(b=>b.classList.toggle('active', +b.dataset.s===s));
+  drawHeat(views[s].mat, views[s].kind);
+  cap.innerHTML=views[s].cap;
+}
+document.getElementById('steps').addEventListener('click', e=>{ if(e.target.dataset.s!==undefined) show(+e.target.dataset.s); });
+show(0);
+</script>
+</body>
+</html>

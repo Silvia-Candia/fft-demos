@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demo 9 - Radix reshapes the flow graph</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="index.html">&larr; all demos</a>
+  <h1>9 &middot; Radix reshapes the flow graph</h1>
+  <p class="sub">Same N, same transform. Raising the radix splits the input into more piles at once, so there are fewer stages, but each butterfly is wider (an r-point block). This is the structural side of the U-shape in demo 3. (Part 1)</p>
+  <div class="card">
+    <div class="controls">
+      <div class="control">
+        <label>FFT length N</label>
+        <select id="N">
+          <option value="16">16</option>
+          <option value="64" selected>64</option>
+        </select>
+      </div>
+      <div class="control">
+        <label>radix r</label>
+        <select id="R">
+          <option value="2">2</option>
+          <option value="4" selected>4</option>
+          <option value="8">8</option>
+        </select>
+      </div>
+    </div>
+    <p class="readout" id="readout"></p>
+    <canvas id="net" width="800" height="460"></canvas>
+    <p class="sub" id="cap" style="margin-top:8px"></p>
+  </div>
+  <p class="note"><b>Reading it:</b> each shaded block is one radix-r butterfly: r inputs in, r outputs out (a small r-point DFT). Stages = log<sub>r</sub>N, and each stage holds N/r blocks. As r grows the graph gets shorter (fewer stages) but the blocks get taller (heavier butterflies). Whether total work goes up or down is the U-shape: see demo 3 for the operation-count tradeoff. Radix-r needs N to be a power of r, which is why radix-8 is unavailable at N=16.</p>
+</div>
+<script src="plot.js"></script>
+<script>
+const selN = document.getElementById("N");
+const selR = document.getElementById("R");
+const out = document.getElementById("readout");
+const cap = document.getElementById("cap");
+const ctx = document.getElementById("net").getContext("2d");
+
+const palette = ["#dbeafe","#fde68a","#ddd6fe","#bbf7d0","#fbcfe8","#fed7aa"];
+const edgeC = ["#2563eb","#d97706","#7c3aed","#16a34a","#db2777","#ea580c"];
+
+function isPow(N, r){
+  let v = 1; while(v < N) v *= r; return v === N;
+}
+
+function validRadices(N){ return [2,4,8].filter(r => isPow(N, r)); }
+
+function syncRadixOptions(){
+  const N = +selN.value;
+  const ok = validRadices(N);
+  [...selR.options].forEach(o => { o.disabled = !ok.includes(+o.value); });
+  if(!ok.includes(+selR.value)) selR.value = String(ok[ok.length-1]); // snap to largest valid
+}
+
+function draw(){
+  const N = +selN.value, r = +selR.value;
+  const stages = Math.round(Math.log(N)/Math.log(r));
+  const perStage = N / r;
+
+  const top=46, bottom=24, leftLabel=70, rightLabel=70;
+  const usableH = 460 - top - bottom;
+  const gap = usableH / (N - 1);
+  const Y = i => top + i*gap;
+  const x0 = leftLabel, x1 = 800 - rightLabel;
+  const cols = [];
+  for(let c=0;c<=stages;c++) cols.push(x0 + (x1 - x0) * c / stages);
+
+  clearCanvas(ctx, 800, 460);
+
+  // stage by stage: blocks of r consecutive lines (in this stage's grouping)
+  for(let s=1;s<=stages;s++){
+    const c = s-1;
+    const span = Math.pow(r, s-1);     // distance between members of a block at this stage
+    const grp = r*span;                 // block footprint
+    const colW = 1; // not used
+    let blockIdx = 0;
+    for(let start=0; start<N; start+=grp){
+      for(let off=0; off<span; off++){
+        // members of this butterfly block
+        const members = [];
+        for(let m=0;m<r;m++) members.push(start + off + m*span);
+        // shaded box spanning members
+        const yTop = Y(Math.min.apply(null,members)) - gap*0.35;
+        const yBot = Y(Math.max.apply(null,members)) + gap*0.35;
+        const xa = cols[c], xb = cols[c+1];
+        ctx.fillStyle = palette[(s-1) % palette.length];
+        ctx.globalAlpha = 0.55;
+        ctx.fillRect(xa, yTop, xb-xa, yBot-yTop);
+        ctx.globalAlpha = 1;
+        // r-in to r-out connecting lines (qualitative: each member to each member)
+        ctx.strokeStyle = edgeC[(s-1) % edgeC.length];
+        ctx.lineWidth = N>16 ? 0.8 : 1.1;
+        ctx.globalAlpha = N>16 ? 0.5 : 0.7;
+        for(let a=0;a<r;a++) for(let b=0;b<r;b++){
+          ctx.beginPath(); ctx.moveTo(xa, Y(members[a])); ctx.lineTo(xb, Y(members[b])); ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+        blockIdx++;
+      }
+    }
+  }
+
+  // nodes
+  const dotR = N>16 ? 2.2 : 3.2;
+  for(let col=0;col<=stages;col++) for(let i=0;i<N;i++){ ctx.fillStyle="#334155"; ctx.beginPath(); ctx.arc(cols[col],Y(i),dotR,0,7); ctx.fill(); }
+
+  // labels
+  ctx.fillStyle="#1f2933"; ctx.textBaseline="middle"; ctx.font="12px system-ui";
+  ctx.textAlign="right"; ctx.fillText("x[0.."+(N-1)+"]", cols[0]-10, Y(0));
+  ctx.textAlign="left";  ctx.fillText("X[0.."+(N-1)+"]", cols[stages]+10, Y(0));
+
+  // stage captions
+  ctx.fillStyle="#52606d"; ctx.textAlign="center"; ctx.textBaseline="bottom"; ctx.font="12px system-ui";
+  for(let s=1;s<=stages;s++) ctx.fillText("stage "+s, (cols[s-1]+cols[s])/2, top-8);
+
+  out.innerHTML = "<b>N = " + N + ", radix " + r + ":</b> " +
+    "<b>" + stages + "</b> stages (log<sub>"+r+"</sub>"+N+"), " +
+    "each stage has N/r = <b>" + perStage + "</b> radix-" + r + " butterflies, " +
+    "<b>" + (stages*perStage) + "</b> butterfly blocks total.";
+  cap.innerHTML = "Each shaded block is one radix-" + r + " butterfly: " + r +
+    " lines in, " + r + " lines out. Compare radices at fixed N: the graph trades height (stages) for block width.";
+}
+
+selN.addEventListener("change", () => { syncRadixOptions(); draw(); });
+selR.addEventListener("change", draw);
+syncRadixOptions(); draw();
+</script>
+</body>
+</html>

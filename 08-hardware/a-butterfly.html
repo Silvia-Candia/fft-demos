@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demo 8A - The butterfly as hardware</title>
+<link rel="stylesheet" href="../style.css">
+<style>
+  .crumbs { font-size:13px; color:var(--muted); margin-bottom:14px; }
+  .crumbs a { color:var(--accent); text-decoration:none; }
+  .crumbs a:hover { text-decoration:underline; }
+  .hint { font-size:13px; color:var(--accent); margin:8px 0 0; }
+  .panel { font-size:14px; background:#f0f6ff; border:1px solid #cdddf5; border-radius:8px; padding:14px 16px; margin-top:14px; }
+  .panel h3 { margin:0 0 8px; font-size:15px; }
+  .panel .eq { font-family: ui-monospace, Consolas, monospace; font-size:14px; background:#fff; border:1px solid var(--line); border-radius:6px; padding:8px 10px; margin:8px 0; }
+  .panel.hidden { display:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">&larr; all demos</a>
+  <div class="crumbs"><a href="index.html">8 &middot; FFT hardware explorer</a> / <b>Level A &middot; the butterfly as hardware</b></div>
+  <h1>8A &middot; The butterfly as hardware</h1>
+  <p class="sub">The radix-2 butterfly is three hardware blocks: a complex multiplier (the expensive one), an adder, and a subtractor. Click a block to drill in. (Part 1, hardware)</p>
+
+  <div class="card">
+    <canvas id="bf" width="800" height="300"></canvas>
+    <p class="hint" id="hint">Click the complex multiplier (&times; W) to see what it costs.</p>
+    <div class="panel hidden" id="panel"></div>
+  </div>
+
+  <p class="note"><b>Why the multiplier dominates:</b> adds and subtracts are cheap (a few LUTs). A complex multiply needs real multipliers, which on an FPGA map to <b>DSP slices</b>, a limited resource that drives both area and power. This is why operation counts always count multiplies, and why the whole FFT cost story is really about multiplies.</p>
+</div>
+<script>
+const ctx = document.getElementById("bf").getContext("2d");
+const panel = document.getElementById("panel");
+const hint = document.getElementById("hint");
+
+// block rectangles, in canvas coords, with hit-testing
+const blocks = {
+  mult: {x:300, y:185, w:120, h:54, label:"complex", sub:"× W", color:"#fde68a", stroke:"#d97706"},
+  add:  {x:560, y:70,  w:120, h:48, label:"adder", sub:"a + Wb", color:"#bbf7d0", stroke:"#16a34a"},
+  sub:  {x:560, y:200, w:120, h:48, label:"subtractor", sub:"a − Wb", color:"#fecaca", stroke:"#dc2626"}
+};
+
+function line(x1,y1,x2,y2,c,w){ ctx.strokeStyle=c||"#64748b"; ctx.lineWidth=w||2; ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); }
+function arrow(x1,y1,x2,y2,c){ line(x1,y1,x2,y2,c,2); const a=Math.atan2(y2-y1,x2-x1); ctx.fillStyle=c||"#64748b"; ctx.beginPath(); ctx.moveTo(x2,y2); ctx.lineTo(x2-9*Math.cos(a-0.4),y2-9*Math.sin(a-0.4)); ctx.lineTo(x2-9*Math.cos(a+0.4),y2-9*Math.sin(a+0.4)); ctx.closePath(); ctx.fill(); }
+function rrect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+function drawBlock(b, glow){
+  rrect(b.x,b.y,b.w,b.h,8);
+  ctx.fillStyle=b.color; ctx.fill();
+  ctx.lineWidth = glow?3:1.5; ctx.strokeStyle=b.stroke; ctx.stroke();
+  ctx.fillStyle="#1f2933"; ctx.textAlign="center";
+  ctx.font="600 14px system-ui"; ctx.textBaseline="alphabetic";
+  ctx.fillText(b.label, b.x+b.w/2, b.y+b.h/2-2);
+  ctx.font="13px ui-monospace, Consolas, monospace";
+  ctx.fillStyle="#52606d"; ctx.fillText(b.sub, b.x+b.w/2, b.y+b.h/2+16);
+}
+
+let active = null;
+function draw(){
+  ctx.fillStyle="#fff"; ctx.fillRect(0,0,800,300);
+  const ayA=94, ayB=224; // input a line y, input b line y
+  // input dots + labels
+  ctx.fillStyle="#1f2933"; ctx.font="16px system-ui"; ctx.textAlign="right"; ctx.textBaseline="middle";
+  ctx.fillText("a", 70, ayA); ctx.fillText("b", 70, ayB);
+  // a goes right to a node, splits to adder and subtractor
+  arrow(80, ayA, 540, ayA, "#2563eb");        // a along the top into add/sub region
+  // b goes into the multiplier
+  arrow(80, ayB, blocks.mult.x, blocks.mult.y+blocks.mult.h/2, "#2563eb");
+  // W input into multiplier from below
+  ctx.fillStyle="#b45309"; ctx.font="14px ui-monospace, Consolas, monospace"; ctx.textAlign="center";
+  ctx.fillText("W = e^(-i 2πk/N)", blocks.mult.x+blocks.mult.w/2, 280);
+  arrow(blocks.mult.x+blocks.mult.w/2, 268, blocks.mult.x+blocks.mult.w/2, blocks.mult.y+blocks.mult.h, "#d97706");
+  // multiplier output (Wb) goes up to a split, then to adder (+) and subtractor (-)
+  const mx = blocks.mult.x+blocks.mult.w, my = blocks.mult.y+blocks.mult.h/2;
+  arrow(mx, my, 500, my, "#d97706");
+  line(500, my, 500, 94, "#d97706", 2);    // up to adder feed
+  line(500, my, 500, 224, "#d97706", 2);   // down to subtractor feed
+  arrow(500, 94, blocks.add.x, blocks.add.y+blocks.add.h/2, "#d97706");
+  arrow(500, 224, blocks.sub.x, blocks.sub.y+blocks.sub.h/2, "#d97706");
+  ctx.fillStyle="#b45309"; ctx.font="12px ui-monospace, Consolas, monospace"; ctx.textAlign="left";
+  ctx.fillText("Wb", mx+6, my-8);
+  // a feeds into adder and subtractor too (tap from the top a-line at x=500 region via 540)
+  line(540, ayA, 540, 94, "#2563eb", 2);
+  line(540, ayA, 540, 224, "#2563eb", 2);
+  arrow(540, 94, blocks.add.x, blocks.add.y+blocks.add.h/2-12, "#2563eb");
+  arrow(540, 224, blocks.sub.x, blocks.sub.y+blocks.sub.h/2+12, "#2563eb");
+  // blocks
+  drawBlock(blocks.mult, active==="mult");
+  drawBlock(blocks.add, active==="add");
+  drawBlock(blocks.sub, active==="sub");
+  // outputs
+  ctx.fillStyle="#1f2933"; ctx.font="14px ui-monospace, Consolas, monospace"; ctx.textAlign="left"; ctx.textBaseline="middle";
+  arrow(blocks.add.x+blocks.add.w, blocks.add.y+blocks.add.h/2, 740, blocks.add.y+blocks.add.h/2, "#16a34a");
+  arrow(blocks.sub.x+blocks.sub.w, blocks.sub.y+blocks.sub.h/2, 740, blocks.sub.y+blocks.sub.h/2, "#dc2626");
+  ctx.fillText("a + Wb", 744, blocks.add.y+blocks.add.h/2);
+  ctx.fillText("a − Wb", 744, blocks.sub.y+blocks.sub.h/2);
+}
+
+const panels = {
+  mult: "<h3>Complex multiplier &times; W</h3>" +
+    "<p>One complex multiply (a+bi)(c+di) expands into real operations:</p>" +
+    "<div class='eq'>(a+bi)(c+di) = (ac − bd) + (ad + bc) i</div>" +
+    "<p>That is <b>4 real multiplies</b> (ac, bd, ad, bc) and <b>2 real adds</b> (one subtract, one add).</p>" +
+    "<p>A known trick computes it in <b>3 real multiplies</b> + 5 adds (Karatsuba-style), trading a multiply for cheaper adds, which matters because multiplies are the scarce DSP resource.</p>" +
+    "<p><b>FPGA mapping:</b> each real multiply &rarr; a <b>DSP slice</b>. So one butterfly burns about 3 to 4 DSP slices: the single most resource-hungry part of the FFT, and the main driver of area and power.</p>",
+  add: "<h3>Adder &nbsp;a + Wb</h3>" +
+    "<p>Complex add: add the real parts, add the imaginary parts. <b>2 real adds</b>.</p>" +
+    "<p><b>FPGA mapping:</b> plain fabric (LUTs + carry chains). Cheap next to a multiply, which is why op-counts ignore adds and count multiplies.</p>",
+  sub: "<h3>Subtractor &nbsp;a − Wb</h3>" +
+    "<p>Complex subtract: subtract real parts, subtract imaginary parts. <b>2 real subtracts</b>.</p>" +
+    "<p>The butterfly reuses the <i>same</i> Wb for both outputs (one + , one −), so the costly multiply is done once and shared. That sharing is the whole efficiency of the butterfly.</p>"
+};
+
+// ---- circuit diagrams drawn into the panel ----
+function cbox(c, x, y, w, h, fill, stroke, label){
+  c.beginPath();
+  const r=6; c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath();
+  c.fillStyle=fill; c.fill(); c.lineWidth=1.5; c.strokeStyle=stroke; c.stroke();
+  c.fillStyle="#1f2933"; c.textAlign="center"; c.textBaseline="middle"; c.font="600 16px ui-monospace, Consolas, monospace";
+  c.fillText(label, x+w/2, y+h/2);
+}
+function cwire(c, x1,y1,x2,y2,col){ c.strokeStyle=col||"#64748b"; c.lineWidth=1.6; c.beginPath(); c.moveTo(x1,y1); c.lineTo(x2,y2); c.stroke(); }
+function carrow(c, x1,y1,x2,y2,col){ cwire(c,x1,y1,x2,y2,col); const a=Math.atan2(y2-y1,x2-x1); c.fillStyle=col||"#64748b"; c.beginPath(); c.moveTo(x2,y2); c.lineTo(x2-8*Math.cos(a-0.4),y2-8*Math.sin(a-0.4)); c.lineTo(x2-8*Math.cos(a+0.4),y2-8*Math.sin(a+0.4)); c.closePath(); c.fill(); }
+function clabel(c, t, x, y, col, align){ c.fillStyle=col||"#1f2933"; c.textAlign=align||"left"; c.textBaseline="middle"; c.font="13px ui-monospace, Consolas, monospace"; c.fillText(t, x, y); }
+
+function drawCircuit(key){
+  const cv = document.getElementById("circuit");
+  if(!cv) return;
+  const c = cv.getContext("2d");
+  c.fillStyle="#fff"; c.fillRect(0,0,560,260);
+  const M="#fde68a", Ms="#d97706", A="#bbf7d0", As="#16a34a", S="#fecaca", Ss="#dc2626";
+  if(key==="mult"){
+    clabel(c,"b_r",18,40,"#2563eb","left"); clabel(c,"b_i",18,80,"#2563eb","left");
+    clabel(c,"W_r",18,160,"#b45309","left"); clabel(c,"W_i",18,200,"#b45309","left");
+    cbox(c,150,24,70,34,M,Ms,"×"); clabel(c,"W_r·b_r",225,41,"#52606d","left");
+    cbox(c,150,70,70,34,M,Ms,"×"); clabel(c,"W_i·b_i",225,87,"#52606d","left");
+    cbox(c,150,150,70,34,M,Ms,"×"); clabel(c,"W_r·b_i",225,167,"#52606d","left");
+    cbox(c,150,196,70,34,M,Ms,"×"); clabel(c,"W_i·b_r",225,213,"#52606d","left");
+    carrow(c,50,40,150,41,"#2563eb");
+    carrow(c,50,160,150,41,"#b45309");
+    carrow(c,50,80,150,87,"#2563eb");
+    carrow(c,50,200,150,87,"#b45309");
+    carrow(c,50,80,150,167,"#2563eb");
+    carrow(c,50,160,150,167,"#b45309");
+    carrow(c,50,40,150,213,"#2563eb");
+    carrow(c,50,200,150,213,"#b45309");
+    cbox(c,360,40,60,34,S,Ss,"−");
+    carrow(c,300,41,360,52,"#52606d"); carrow(c,300,87,360,62,"#52606d");
+    carrow(c,420,57,520,57,Ss); clabel(c,"Re = W_r·b_r − W_i·b_i",430,30,"#1f2933","left");
+    cbox(c,360,166,60,34,A,As,"+");
+    carrow(c,300,167,360,177,"#52606d"); carrow(c,300,213,360,189,"#52606d");
+    carrow(c,420,183,520,183,As); clabel(c,"Im = W_r·b_i + W_i·b_r",430,222,"#1f2933","left");
+    clabel(c,"4 multipliers (→ DSP slices)  +  1 sub, 1 add",150,250,"#52606d","left");
+  } else if(key==="add"){
+    clabel(c,"a_r",30,70,"#2563eb","left"); clabel(c,"(Wb)_r",30,110,"#d97706","left");
+    clabel(c,"a_i",30,170,"#2563eb","left"); clabel(c,"(Wb)_i",30,210,"#d97706","left");
+    cbox(c,220,70,70,34,A,As,"+"); carrow(c,90,70,220,82,"#2563eb"); carrow(c,110,110,220,92,"#d97706");
+    carrow(c,290,87,470,87,As); clabel(c,"(a+Wb)_r",480,87,"#1f2933","left");
+    cbox(c,220,176,70,34,A,As,"+"); carrow(c,90,170,220,188,"#2563eb"); carrow(c,110,210,220,198,"#d97706");
+    carrow(c,290,193,470,193,As); clabel(c,"(a+Wb)_i",480,193,"#1f2933","left");
+    clabel(c,"2 real adders (cheap fabric, no DSP)",150,245,"#52606d","left");
+  } else if(key==="sub"){
+    clabel(c,"a_r",30,70,"#2563eb","left"); clabel(c,"(Wb)_r",30,110,"#d97706","left");
+    clabel(c,"a_i",30,170,"#2563eb","left"); clabel(c,"(Wb)_i",30,210,"#d97706","left");
+    cbox(c,220,70,70,34,S,Ss,"−"); carrow(c,90,70,220,82,"#2563eb"); carrow(c,110,110,220,92,"#d97706");
+    carrow(c,290,87,470,87,Ss); clabel(c,"(a−Wb)_r",480,87,"#1f2933","left");
+    cbox(c,220,176,70,34,S,Ss,"−"); carrow(c,90,170,220,188,"#2563eb"); carrow(c,110,210,220,198,"#d97706");
+    carrow(c,290,193,470,193,Ss); clabel(c,"(a−Wb)_i",480,193,"#1f2933","left");
+    clabel(c,"2 real subtractors. The same Wb feeds both adder and subtractor.",110,245,"#52606d","left");
+  }
+}
+
+function showPanel(key){
+  active = key;
+  panel.innerHTML = "<canvas id='circuit' width='560' height='260' style='display:block;max-width:100%;background:#fff;border:1px solid var(--line);border-radius:6px;margin-bottom:12px'></canvas>" + panels[key];
+  panel.classList.remove("hidden");
+  hint.style.display = "none";
+  drawCircuit(key);
+  draw();
+}
+
+document.getElementById("bf").addEventListener("click", e => {
+  const r = e.target.getBoundingClientRect();
+  const sx = 800 / r.width, sy = 300 / r.height;
+  const x = (e.clientX - r.left) * sx, y = (e.clientY - r.top) * sy;
+  for(const k in blocks){
+    const b = blocks[k];
+    if(x>=b.x && x<=b.x+b.w && y>=b.y && y<=b.y+b.h){ showPanel(k); return; }
+  }
+});
+
+draw();
+</script>
+</body>
+</html>

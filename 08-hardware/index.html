@@ -1,0 +1,44 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demo 8 - FFT hardware explorer</title>
+<link rel="stylesheet" href="../style.css">
+<style>
+  .level { display:block; text-decoration:none; color:inherit; border:1px solid var(--line); border-radius:9px; padding:16px 18px; margin-bottom:12px; background:#fff; }
+  .level:hover { border-color:var(--accent); }
+  .level .t { font-weight:600; font-size:16px; }
+  .level .d { color:var(--muted); font-size:13px; margin-top:4px; }
+  .level .tag { display:inline-block; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--accent); border:1px solid var(--accent); border-radius:4px; padding:1px 6px; margin-right:8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">&larr; all demos</a>
+  <h1>8 &middot; FFT hardware explorer</h1>
+  <p class="sub">From the maths to the silicon. The same radix-2 FFT, seen as hardware blocks, and how the identical maths maps to three different FPGA layouts. Click into each level. (Part 1, hardware)</p>
+
+  <div class="card">
+    <p class="note" style="margin-bottom:16px"><b>Why this matters:</b> a practical FFT core has to be <i>power-efficient</i>. Power and area live in the physical blocks (multipliers, memories, data movement) and in the architecture choice (how much you build versus how much you reuse). This explorer makes those concrete.</p>
+
+    <a class="level" href="a-butterfly.html">
+      <div class="t"><span class="tag">Level A</span>The butterfly as hardware</div>
+      <div class="d">One radix-2 butterfly in silicon: complex multiplier, adder, subtractor. Drill into the multiplier to see a complex multiply = 4 real multiplies + 2 adds (and the 3-multiply trick).</div>
+    </a>
+
+    <a class="level" href="b-blocks.html">
+      <div class="t"><span class="tag">Level B</span>The supporting blocks</div>
+      <div class="d">What surrounds the butterfly: a twiddle ROM (constants, not computed live), a RAM for samples and intermediate results, and control / address-generation logic.</div>
+    </a>
+
+    <a class="level" href="c-architectures.html">
+      <div class="t"><span class="tag">Level C</span>Three FPGA architectures</div>
+      <div class="d">The area-versus-throughput knob: iterative (one butterfly, reused), pipelined (one per stage, streaming), parallel (all at once). Resource counts for a chosen N make the tradeoff concrete.</div>
+    </a>
+  </div>
+
+  <p class="note"><b>The thread:</b> all three architectures compute the <i>same</i> maths. They differ only in how many physical butterflies you build and how you schedule the data through them. That is the heart of a configurable, power-efficient core.</p>
+</div>
+</body>
+</html>

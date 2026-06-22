@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demo 4 - Butterfly and stages</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .eq { font-size:16px; color:var(--fg); margin:0 0 6px; font-family: ui-monospace, 'Cascadia Code', Consolas, monospace; }
+  .eq .lbl { font-family: system-ui, sans-serif; font-size:13px; color:var(--muted); margin-right:8px; }
+  .eq sub { font-size:0.75em; }
+  .eq sup { font-size:0.75em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="index.html">&larr; all demos</a>
+  <h1>4 &middot; The butterfly, and log&#8322;N stages</h1>
+  <p class="sub">One butterfly turns two inputs into two outputs with a single twiddle multiply. An N-point FFT is just log&#8322;N stages of them. (Part 1)</p>
+  <div class="card">
+    <canvas id="bf" width="800" height="200"></canvas>
+  </div>
+
+  <div class="card">
+    <div class="controls">
+      <div class="control">
+        <label>Flow graph for N</label>
+        <select id="Ndiag">
+          <option value="8" selected>8</option>
+          <option value="16">16</option>
+          <option value="32">32</option>
+          <option value="64">64</option>
+        </select>
+      </div>
+    </div>
+
+    <p class="eq"><span class="lbl">direct DFT</span>X[k] = &Sigma;<sub>n=0..N&minus;1</sub> x[n] &middot; W<sup>kn</sup>,&nbsp;&nbsp;W = e<sup>&minus;i 2&pi;/N</sup></p>
+    <p class="sub" id="meshcap" style="margin-bottom:8px"></p>
+    <canvas id="mesh" width="800" height="420"></canvas>
+
+    <hr style="border:none;border-top:1px solid var(--line);margin:22px 0">
+
+    <p class="eq"><span class="lbl">FFT butterfly</span>X[k] = E[k] + W<sup>k</sup>&middot;O[k],&nbsp;&nbsp;X[k+N/2] = E[k] &minus; W<sup>k</sup>&middot;O[k]</p>
+    <p class="sub" id="diagcap" style="margin-bottom:8px"></p>
+    <canvas id="net" width="800" height="420"></canvas>
+  </div>
+
+  <div class="card">
+    <div class="controls">
+      <div class="control">
+        <label>Report stage count for N</label>
+        <select id="Ncount">
+          <option value="8">8</option>
+          <option value="16">16</option>
+          <option value="64">64</option>
+          <option value="1024" selected>1024</option>
+          <option value="32768">32768</option>
+        </select>
+      </div>
+    </div>
+    <p class="readout" id="readout"></p>
+    <p class="sub" style="margin-top:6px">The flow graphs above stay small so they are readable. This readout scales the structure up to the lengths the IP core targets, where drawing every butterfly is hopeless but the counts still follow (N/2)&middot;log&#8322;N.</p>
+  </div>
+
+  <p class="note"><b>The structure:</b> the direct DFT connects every input to every output: N&middot;N = N&sup2; multiply-adds, a dense mesh. The FFT does the same job in log&#8322;N stages of N/2 butterflies each, so ~ (N/2)&middot;log&#8322;N. That is the whole saving, and it is why the top graph is a hairball while the bottom one stays tidy.</p>
+</div>
+<script src="plot.js"></script>
+<script>
+const bctx = document.getElementById("bf").getContext("2d");
+const nctx = document.getElementById("net").getContext("2d");
+const mctx = document.getElementById("mesh").getContext("2d");
+function dot(ctx,x,y,c,r){ ctx.fillStyle=c||"#334155"; ctx.beginPath(); ctx.arc(x,y,r||4,0,7); ctx.fill(); }
+function line(ctx,x1,y1,x2,y2,c,w){ ctx.strokeStyle=c; ctx.lineWidth=w||1.6; ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); }
+
+function drawButterfly(){
+  clearCanvas(bctx,800,200);
+  const ax=160, ay=55, bx=160, by=150, ox=560;
+  line(bctx,ax,ay,ox,55,"#2563eb",2);
+  line(bctx,ax,ay,ox,150,"#2563eb",2);
+  line(bctx,bx,by,ox,55,"#f59e0b",2);
+  line(bctx,bx,by,ox,150,"#f59e0b",2);
+  dot(bctx,ax,ay,"#1f2933"); dot(bctx,bx,by,"#1f2933"); dot(bctx,ox,55,"#1f2933"); dot(bctx,ox,150,"#1f2933");
+  bctx.fillStyle="#1f2933"; bctx.font="15px system-ui"; bctx.textBaseline="middle";
+  bctx.textAlign="right"; bctx.fillText("a", ax-14, ay); bctx.fillText("b", bx-14, by);
+  bctx.textAlign="left"; bctx.fillText("a + W·b", ox+14, 55); bctx.fillText("a − W·b", ox+14, 150);
+  bctx.fillStyle="#b45309"; bctx.font="13px system-ui";
+  bctx.fillText("orange leg = multiplied by twiddle  W = e^(− i 2πk/N)", 240, 102);
+}
+
+function bitrev(i, bits){ let r=0; for(let b=0;b<bits;b++){ r=(r<<1)|((i>>b)&1); } return r; }
+
+// ---- direct DFT: full N x N mesh ----
+function drawMesh(N){
+  const top=56, bottom=28, leftLabel=90, rightLabel=80;
+  const usableH = 420 - top - bottom;
+  const gap = usableH / (N - 1);
+  const Y = i => top + i*gap;
+  const xL = leftLabel, xR = 800 - rightLabel;
+  clearCanvas(mctx,800,420);
+  // every input to every output
+  const alpha = N>32 ? 0.10 : (N>16 ? 0.16 : 0.28);
+  mctx.strokeStyle = "rgba(37,99,235," + alpha + ")"; mctx.lineWidth = 1;
+  for(let i=0;i<N;i++) for(let k=0;k<N;k++){
+    mctx.beginPath(); mctx.moveTo(xL,Y(i)); mctx.lineTo(xR,Y(k)); mctx.stroke();
+  }
+  const dotR = N>32 ? 2.5 : 4;
+  for(let i=0;i<N;i++){ dot(mctx,xL,Y(i),"#334155",dotR); dot(mctx,xR,Y(i),"#334155",dotR); }
+  mctx.fillStyle="#1f2933"; mctx.textBaseline="middle";
+  if(N<=16){
+    mctx.font="13px system-ui";
+    mctx.textAlign="right"; for(let i=0;i<N;i++) mctx.fillText("x["+i+"]", xL-12, Y(i));
+    mctx.textAlign="left";  for(let k=0;k<N;k++) mctx.fillText("X["+k+"]", xR+12, Y(k));
+  } else {
+    mctx.font="12px system-ui";
+    mctx.textAlign="right"; mctx.fillText("x[0.."+(N-1)+"]", xL-10, Y(0));
+    mctx.textAlign="left";  mctx.fillText("X[0.."+(N-1)+"]", xR+10, Y(0));
+  }
+}
+
+// ---- FFT: log2 N stages of butterflies ----
+function drawNetwork(N){
+  const bits = Math.round(Math.log2(N));
+  const stages = bits;
+  const top=56, bottom=28, leftLabel=90, rightLabel=70;
+  const usableH = 420 - top - bottom;
+  const gap = usableH / (N - 1);
+  const Y = i => top + i*gap;
+  const x0 = leftLabel, x1 = 800 - rightLabel;
+  const cols = [];
+  for(let c=0;c<=stages;c++) cols.push(x0 + (x1 - x0) * c / stages);
+
+  clearCanvas(nctx,800,420);
+  for(let s=1;s<=stages;s++){
+    const c=s-1, span=1<<(s-1), grp=2*span;
+    for(let start=0;start<N;start+=grp){
+      for(let k=0;k<span;k++){
+        const i=start+k, j=i+span;
+        line(nctx,cols[c],Y(i),cols[c+1],Y(i),"#9aa5b1",1.2);
+        line(nctx,cols[c],Y(j),cols[c+1],Y(j),"#9aa5b1",1.2);
+        line(nctx,cols[c],Y(i),cols[c+1],Y(j),"#cbd5e1",1.2);
+        line(nctx,cols[c],Y(j),cols[c+1],Y(i),"#cbd5e1",1.2);
+      }
+    }
+  }
+  const dotR = N>32 ? 2.5 : 4;
+  for(let col=0;col<=stages;col++) for(let i=0;i<N;i++) dot(nctx,cols[col],Y(i),"#334155",dotR);
+  nctx.fillStyle="#1f2933"; nctx.textBaseline="middle";
+  if(N<=16){
+    nctx.font="13px system-ui";
+    nctx.textAlign="right"; for(let i=0;i<N;i++) nctx.fillText("x["+bitrev(i,bits)+"]", cols[0]-12, Y(i));
+    nctx.textAlign="left";  for(let i=0;i<N;i++) nctx.fillText("X["+i+"]", cols[stages]+12, Y(i));
+  } else {
+    nctx.font="12px system-ui";
+    nctx.textAlign="right"; nctx.fillText("x[bit-rev]", cols[0]-10, Y(0));
+    nctx.textAlign="left";  nctx.fillText("X[0.."+(N-1)+"]", cols[stages]+10, Y(0));
+  }
+  nctx.fillStyle="#52606d"; nctx.textAlign="center"; nctx.textBaseline="bottom";
+  nctx.font="12px system-ui";
+  for(let s=1;s<=stages;s++){
+    if(stages<=4 || s===1 || s===stages || stages<=6){
+      nctx.fillText("stage "+s, (cols[s-1]+cols[s])/2, top-12);
+    }
+  }
+}
+
+const selDiag = document.getElementById("Ndiag");
+const meshcap = document.getElementById("meshcap");
+const diagcap = document.getElementById("diagcap");
+function updDiag(){
+  const N = +selDiag.value, bits = Math.round(Math.log2(N));
+  drawMesh(N);
+  drawNetwork(N);
+  meshcap.innerHTML = "<b>Direct DFT, N = " + N + ":</b> every input connects to every output. " +
+    "That is N&times;N = <b>" + (N*N).toLocaleString() + "</b> multiply-adds. No structure, no reuse: a dense mesh.";
+  diagcap.innerHTML = "<b>FFT, N = " + N + ":</b> the same transform in " + bits + " stages, N/2 = " + (N/2) +
+    " butterflies each, <b>" + ((N/2)*bits).toLocaleString() + "</b> butterflies total. " +
+    "Inputs in bit-reversed order, natural-order outputs.";
+}
+
+const selCount = document.getElementById("Ncount");
+const out = document.getElementById("readout");
+function updCount(){
+  const N=+selCount.value, st=Math.log2(N);
+  out.innerHTML="N = "+N.toLocaleString()+": direct DFT &asymp; <b>"+(N*N).toLocaleString()+"</b> multiply-adds, "+
+    "FFT &asymp; <b>"+((N/2)*st).toLocaleString()+"</b> butterflies ("+st+" stages &times; "+(N/2).toLocaleString()+" each).";
+}
+
+selDiag.addEventListener("change", updDiag);
+selCount.addEventListener("change", updCount);
+drawButterfly(); updDiag(); updCount();
+</script>
+</body>
+</html>

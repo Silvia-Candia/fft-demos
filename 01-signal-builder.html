@@ -1,0 +1,72 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demo 1 - Signal builder + live spectrum</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="index.html">&larr; all demos</a>
+  <h1>1 &middot; Signal builder + live spectrum</h1>
+  <p class="sub">Any signal is a sum of sine waves. The FFT recovers which sines are present and how much of each. (Part 1)</p>
+  <div class="card">
+    <div class="controls" id="sliders"></div>
+    <canvas id="time" width="800" height="200"></canvas>
+    <div style="height:14px"></div>
+    <canvas id="spec" width="800" height="220"></canvas>
+  </div>
+  <p class="note"><b>Watch:</b> one sine in gives one bar out, a single frequency lands in a single bin. Stack several and the time signal looks messy, but the spectrum stays clean: the FFT untangles them. The spectrum x-axis is "cycles per window" = the bin index k.</p>
+</div>
+<script src="fft.js"></script>
+<script src="plot.js"></script>
+<script>
+const N = 128;
+const comps = [ {f:2,a:0.8}, {f:5,a:0.5}, {f:9,a:0.0}, {f:14,a:0.35} ];
+const slidersEl = document.getElementById('sliders');
+comps.forEach((c, i) => {
+  const el = document.createElement('div'); el.className = 'control';
+  el.innerHTML = '<label>Component ' + (i+1) + ': ' + c.f + ' cycles/window</label>' +
+    '<input type="range" min="0" max="1" step="0.01" value="' + c.a + '" data-i="' + i + '">' +
+    '<span class="val" id="v' + i + '">' + c.a.toFixed(2) + '</span>';
+  slidersEl.appendChild(el);
+});
+slidersEl.addEventListener('input', e => {
+  const i = +e.target.dataset.i;
+  comps[i].a = +e.target.value;
+  document.getElementById('v'+i).textContent = comps[i].a.toFixed(2);
+  draw();
+});
+const tctx = document.getElementById('time').getContext('2d');
+const sctx = document.getElementById('spec').getContext('2d');
+function draw() {
+  const x = new Float64Array(N);
+  let amax = 0;
+  for (let n = 0; n < N; n++) {
+    let s = 0;
+    comps.forEach(c => { s += c.a * Math.sin(2*Math.PI*c.f*n/N); });
+    x[n] = s; amax = Math.max(amax, Math.abs(s));
+  }
+  const yr = Math.max(1.2, amax * 1.1);
+  clearCanvas(tctx, 800, 200);
+  const pt = makePlot(tctx, {x:50,y:18,w:730,h:150}, {xmin:0,xmax:N-1,ymin:-yr,ymax:yr});
+  drawFrame(pt, { title:'Time domain  x[n]', xlabel:'sample n',
+    yticks:[{v:-yr,label:(-yr).toFixed(1)},{v:0,label:'0'},{v:yr,label:yr.toFixed(1)}] });
+  const xs = Array.from({length:N}, (_,i)=>i);
+  plotLineXY(pt, xs, Array.from(x), '#2563eb', 1.8);
+  const sp = fft(x);
+  const mag = magnitude(sp.re, sp.im);
+  const half = N/2;
+  const bars = Array.from({length: half+1}, (_,k)=> mag[k]*2/N);
+  clearCanvas(sctx, 800, 220);
+  const ps = makePlot(sctx, {x:50,y:18,w:730,h:150}, {xmin:-1,xmax:half+1,ymin:0,ymax:1.05});
+  drawFrame(ps, { title:'Magnitude spectrum  |X[k]| . 2/N', xlabel:'bin k  (cycles per window)',
+    xticks:[2,5,9,14,half].map(v=>({v,label:String(v)})),
+    yticks:[{v:0,label:'0'},{v:0.5,label:'0.5'},{v:1,label:'1'}] });
+  plotBars(ps, bars, '#ef4444', 0);
+}
+draw();
+</script>
+</body>
+</html>
